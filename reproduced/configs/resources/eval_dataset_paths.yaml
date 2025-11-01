@@ -1,0 +1,28 @@
+eval_dataset_paths:
+  deepseek-ai/DeepSeek-R1-Distill-Qwen-7B:
+    gsm8k_temp_0_0_top1p0_n1: <path to your evaluation data>
+    math500_temp_0_0_top1p0_n1: <path to your evaluation data>
+    gpqa_diamond_temp_0_0_top1p0_n1: <path to your evaluation data>
+    gsm8k_temp_0_6_top0p95_n1: <path to your evaluation data>
+    math500_temp_0_6_top0p95_n1: <path to your evaluation data>
+    gpqa_diamond_temp_0_6_top0p95_n1: <path to your evaluation data>
+    aime25_1_temp_0_6_top0p95_n8: <path to your evaluation data>
+    aime25_2_temp_0_6_top0p95_n8: <path to your evaluation data>
+  deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B:
+    gsm8k_temp_0_0_top1p0_n1: <path to your evaluation data>
+    math500_temp_0_0_top1p0_n1: <path to your evaluation data>
+    gpqa_diamond_temp_0_0_top1p0_n1: <path to your evaluation data>
+    gsm8k_temp_0_6_top0p95_n1: <path to your evaluation data>
+    math500_temp_0_6_top0p95_n1: <path to your evaluation data>
+    gpqa_diamond_temp_0_6_top0p95_n1: <path to your evaluation data>
+    aime25_1_temp_0_6_top0p95_n8: <path to your evaluation data>
+    aime25_2_temp_0_6_top0p95_n8: <path to your evaluation data>
+  deepseek-ai/DeepSeek-R1-Distill-Llama-8B:
+    gsm8k_temp_0_0_top1p0_n1: <path to your evaluation data>
+    math500_temp_0_0_top1p0_n1: <path to your evaluation data>
+    gpqa_diamond_temp_0_0_top1p0_n1: <path to your evaluation data>
+    gsm8k_temp_0_6_top0p95_n1: <path to your evaluation data>
+    math500_temp_0_6_top0p95_n1: <path to your evaluation data>
+    gpqa_diamond_temp_0_6_top0p95_n1: <path to your evaluation data>
+    aime25_1_temp_0_6_top0p95_n8: <path to your evaluation data>
+    aime25_2_temp_0_6_top0p95_n8: <path to your evaluation data>

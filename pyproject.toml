@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wordsalad-chopper"
+version = "0.1.0"
+description = "WordSaladChopper: A lightweight module that chops away word-salad repetitions in large reasoning models"
+authors = [{ name = "wenyaxie023", email = "wenyaxie023@gmail.com" }]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10,<3.13"                # torch==2.7.0
+keywords = ["nlp", "llm", "repetition", "reasoning", "generation"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# === Dependencies folded in from requirements.txt (names normalized) ===
+dependencies = [
+  "datasets==3.6.0",
+  "latex2sympy2==1.9.1",
+  "numpy==2.2.3",
+  "PyYAML==6.0.3",
+  "regex==2024.11.6",
+  "scikit-learn==1.7.2",              
+  "sentence-transformers==4.1.0",   
+  "sympy==1.14.0",
+  "torch>=2.7.0",
+  "tqdm==4.67.1",
+  "transformers==4.52.4",
+  "typer==0.19.2",
+  "wandb==0.22.2",
+  "word2number==1.1",
+  "accelerate"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["wscgen*"]                  # your import package is 'wscgen'
+
+[project.urls]
+Homepage = "https://github.com/wenyaxie023/WordSaladChopper"
+Repository = "https://github.com/wenyaxie023/WordSaladChopper"
+Issues = "https://github.com/wenyaxie023/WordSaladChopper/issues"

@@ -1,0 +1,6 @@
+trimmer_type: streak_filter_rollback
+trimmer_params:
+  thresh: 0.5
+  streak_len: 2
+  len_threshold: 10
+  short_streak_len: 5

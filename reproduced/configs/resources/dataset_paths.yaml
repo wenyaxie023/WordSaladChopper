@@ -1,0 +1,7 @@
+dataset_paths:
+  deepseek-ai/DeepSeek-R1-Distill-Qwen-7B:
+    s1_temp_0_6_top0p95: <path to your training data>
+  deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B:
+    s1_temp_0_6_top0p95: <path to your training data>
+  deepseek-ai/DeepSeek-R1-Distill-Llama-8B:
+    s1_temp_0_6_top0p95: <path to your training data>

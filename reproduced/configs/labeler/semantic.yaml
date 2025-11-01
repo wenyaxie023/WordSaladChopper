@@ -1,0 +1,4 @@
+labeler_type: semantic
+labeler_params:
+  sim_threshold: 0.99
+  embed_model: sentence-transformers/all-MiniLM-L6-v2

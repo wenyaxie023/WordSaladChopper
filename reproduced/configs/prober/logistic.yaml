@@ -1,0 +1,4 @@
+prober_name: logistic
+prober_params:
+  lr: 1e-2
+  epochs: 50

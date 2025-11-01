@@ -1,0 +1,5 @@
+skythought
+wandb==0.22.2
+sentence-transformers==4.1.0
+hydra-core
+accelerate

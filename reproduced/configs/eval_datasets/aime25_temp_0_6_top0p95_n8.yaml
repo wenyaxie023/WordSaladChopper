@@ -1,0 +1,14 @@
+aime25_1:
+  temp: 0.6
+  top_p: 0.95
+  n: 8
+  dataset_id: aime25_1_temp_0_6_top0p95_n8
+  path: ${eds_path:${model_name},${.dataset_id}}
+  full_name: aime25
+aime25_2:
+  temp: 0.6
+  top_p: 0.95
+  n: 8
+  dataset_id: aime25_2_temp_0_6_top0p95_n8
+  path: ${eds_path:${model_name},${.dataset_id}}
+  full_name: aime25

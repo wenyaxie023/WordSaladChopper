@@ -1,0 +1,16 @@
+defaults:
+  - train_mix: s1_temp_0_6_top0p95        
+  - labeler: semantic
+  - prober: logistic
+  - extractor: layer27_full
+  - eval_datasets: gsm8k_temp_0_6_top0p95.yaml
+  - trimmer: streak_filter_rollback_0p5_2_10_5
+  - _self_                
+
+run_mode: eval
+train_mode: crossdomain
+model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+min_token_len: 10
+seed: 41
+
+
