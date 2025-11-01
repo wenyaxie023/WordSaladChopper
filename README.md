@@ -5,12 +5,13 @@
 
 **WordSaladChopper (WSC)** is a lightweight plug-and-play module that detects and removes *“word salad”* repetitions in large reasoning models
 
-<iframe src="https://wenyaxie023.github.io/WordSaladChopper/asset/wordsaladchopper.pdf" width="100%" height="700px">
-</iframe>
+![WordSaladChopper Paper Preview](asset/wordsaladchopper.jpg)
+
+
 
 ---
 ## News
-- [11/01/2025] v1 released — first public version now available.**
+- [11/01/2025] v1 released — first public version now available.
 
 ## 🚀 1. Quick Start (End-to-End Demo)
 
