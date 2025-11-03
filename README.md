@@ -83,26 +83,16 @@ print("Generated text:", result_wsc["response"])
 print("Total tokens used:", result_wsc["total_used_tokens"])
 ```
 
-### Ready-to-Use Classifiers
-- **DeepSeek-R1-Distill-Qwen-7B** → `DeepSeek-R1-Distill-Qwen-7B_s1/probe.pkl`
-- **DeepSeek-R1-Distill-Qwen-1.5B** → `DeepSeek-R1-Distill-Qwen-1.5B_s1/probe.pkl`
-- **DeepSeek-R1-Distill-Llama-8B** → `DeepSeek-R1-Distill-Llama-8B_s1/probe.pkl`
-
-Fetch any probe via:
-```python
-from huggingface_hub import hf_hub_download
-
-probe_file = hf_hub_download(
-    repo_id="xiewenya/WordSaladChopper_Classifier",
-    filename="DeepSeek-R1-Distill-Qwen-1.5B_s1/probe.pkl",  # swap to the probe you need
-    repo_type="model",
-)
-```
 ---
 
 ## 2. CLI Usage
 ### 2.1 Prepare the Prober
+We provide 3 ready-to-use classifiers:
+- **DeepSeek-R1-Distill-Qwen-7B** → `DeepSeek-R1-Distill-Qwen-7B_s1/probe.pkl`
+- **DeepSeek-R1-Distill-Qwen-1.5B** → `DeepSeek-R1-Distill-Qwen-1.5B_s1/probe.pkl`
+- **DeepSeek-R1-Distill-Llama-8B** → `DeepSeek-R1-Distill-Llama-8B_s1/probe.pkl`
 
+To download a probe (example for the DeepSeek-R1-Distill-Qwen-7B):
 ```bash
 mkdir -p prober/DeepSeek-R1-Distill-Qwen-7B_s1
 wget https://huggingface.co/xiewenya/WordSaladChopper_Classifier/resolve/main/DeepSeek-R1-Distill-Qwen-7B_s1/probe.pkl \
