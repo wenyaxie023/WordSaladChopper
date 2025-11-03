@@ -1,18 +1,10 @@
-train_mode: crossdomain
 model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
-min_token_len: 10
-pos_neg_ratio: "1:1"
 train_mix: 
   s1_temp_0_6_top0p95:
     ratio: 1
     temp: 0.6
     top_p: 0.95
     dataset_id: s1_temp_0_6_top0p95
-    path: /users/4/xie00470/Skythought/results/0.6/0.95/deepseek-ai_DeepSeek-R1-Distill-Qwen-7B_gsm8k_6b0634/results.json
-labeler_type: semantic
-prober_name: logistic
-layer_idx: 27
-module_path: null
-seed: 41
-root_dir: "./artifacts_refactor"
+    path: data/DeepSeek-R1-Distill-Qwen-7B_s1/results.json
+
 override: true

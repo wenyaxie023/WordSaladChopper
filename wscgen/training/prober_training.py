@@ -1,4 +1,3 @@
-import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -6,8 +5,7 @@ from tqdm import tqdm
 
 import numpy as np
 
-from wscgen.pipeline.extractor import HiddenStateExtractor 
-from wscgen.pipeline.labeler import SentenceLabeler
+from wscgen.pipeline.extractor import HiddenStateExtractor
 from wscgen.pipeline.collector import TrainingDataCollector
 from wscgen.pipeline.builder import ProbeDatasetBuilder
 from wscgen.pipeline.config import PipelineConfig

@@ -12,7 +12,7 @@ Create a conda environment and install the dependencies:
 conda create -n wsc_reproduce python=3.10
 conda activate wsc_reproduce
 
-cd /home/ubuntu/wscgen/reproduced
+cd reproduced
 pip install -r requirements.txt
 ```
 
@@ -29,9 +29,9 @@ Hydra looks up absolute JSON paths through two resolver files:
 1. Download or generate trace files that match the model you want to probe. We publish ready-to-use `s1` traces on Hugging Face:
 
 ```bash
-mkdir -p /home/ubuntu/wscgen/reproduced/training_data/DeepSeek-R1-Distill-Qwen-7B_s1
+mkdir -p training_data/DeepSeek-R1-Distill-Qwen-7B_s1
 wget https://huggingface.co/datasets/xiewenya/WordSaladChopper_Classifier_Data/resolve/main/DeepSeek-R1-Distill-Qwen-7B_s1/results.json \
-     -O /home/ubuntu/wscgen/reproduced/training_data/DeepSeek-R1-Distill-Qwen-7B_s1/results.json
+     -O training_data/DeepSeek-R1-Distill-Qwen-7B_s1/results.json
 ```
 
 2. Add (or update) the corresponding entry in `configs/resources/dataset_paths.yaml`. Example:
@@ -39,7 +39,7 @@ wget https://huggingface.co/datasets/xiewenya/WordSaladChopper_Classifier_Data/r
 ```yaml
 dataset_paths:
   deepseek-ai/DeepSeek-R1-Distill-Qwen-7B:
-    s1_temp_0_6_top0p95: /home/ubuntu/wscgen/reproduced/training_data/DeepSeek-R1-Distill-Qwen-7B_s1/results.json
+    s1_temp_0_6_top0p95: training_data/DeepSeek-R1-Distill-Qwen-7B_s1/results.json
 ```
 
 ### 2.2 Evaluation traces for trimming and regeneration (`eval_dataset_paths.yaml`)
@@ -49,7 +49,7 @@ dataset_paths:
 ```yaml
 eval_dataset_paths:
   deepseek-ai/DeepSeek-R1-Distill-Qwen-7B:
-    gsm8k_temp_0_6_top0p95_n1: /home/ubuntu/wscgen/reproduced/results/full_traces/0.6/0.95/deepseek-ai_DeepSeek-R1-Distill-Qwen-7B_gsm8k_xxxxx/results.json (replace your own file path here)
+    gsm8k_temp_0_6_top0p95_n1: results/full_traces/0.6/0.95/deepseek-ai_DeepSeek-R1-Distill-Qwen-7B_gsm8k_xxxxx/results.json (replace your own file path here)
 ```
 
 2. If you split a dataset across multiple shards (e.g. `..._part1`, `..._part2`), keep the shared prefix identical and optionally set `full_name` in the per-dataset YAML so the pipeline can merge them automatically.
@@ -107,9 +107,9 @@ bash sh/run_eval.sh
 bash sh/run_regen.sh
 ```
 
-- Use the same probe/extractor configuration as Step 2, and keep `eval_datasets`, `trimmer`, `gen_params`, and `continuation_cues` consistent.
+- Use the same probe/extractor configuration as Step 2, and keep `eval_datasets`, `trimmer`, etc. consistent.
 - The script reads trimmed traces from Step 2 and only regenerates responses whose token count was reduced.
-- Regeneration outputs will be stored in `<root_dir>/<model>/<train_mix>/<hash_id>/eval_trim/<trim_tag>/<gen_tag>/<cue>/<dataset>_regen_results.json`, along with aggregated metrics. Ensure `gen_params` matches the evaluation stage (   `extractor`, `trimmer`, etc.) so the directory layout aligns.
+- Regeneration outputs will be stored in `<root_dir>/<model>/<train_mix>/<hash_id>/eval_trim/<trim_tag>/<gen_tag>/<cue>/<dataset>_regen_results.json`, along with aggregated metrics. Ensure `gen_params` matches the evaluation stage (`extractor`, `trimmer`, etc.) so the directory layout aligns.
 
 ---
 ## Support

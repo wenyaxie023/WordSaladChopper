@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-**WordSaladChopper (WSC)** is a lightweight plug-and-play module that detects and removes *“word salad”* repetitions in large reasoning models
+**WordSaladChopper (WSC)** is a lightweight plug-and-play module that detects and removes *“word salad”* repetitions in large reasoning models.
 
 ![WordSaladChopper Paper Preview](asset/wordsaladchopper.jpg)
 
@@ -20,13 +20,21 @@ For large-scale paper reproduction, see [reproduced/README.md](reproduced/README
 
 ### Installation
 
+Prerequisites:
+- Python 3.10+
+- PyTorch with a compatible CUDA setup (optional, recommended for GPU inference)
+
 ```bash
 git clone https://github.com/wenyaxie023/WordSaladChopper.git
 cd WordSaladChopper
+conda create -n wsc python=3.10
+conda activate wsc
 pip install -e .
 ```
 
 ### Example
+
+This example uses DeepSeek-R1-Distill-Qwen-7B with a ready-to-use classifier hosted on Hugging Face.
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -47,8 +55,8 @@ prober_file = hf_hub_download(
     filename="DeepSeek-R1-Distill-Qwen-7B_s1/probe.pkl",
     repo_type="model",
 )
-
 prober = build_prober("logistic").load(prober_file)
+
 # Initialize chopper
 chopper = Chopper(
     tokenizer=tokenizer, detector=prober,
@@ -68,7 +76,7 @@ result_wsc = wsc_generate(
     model, tokenizer, prompt_txt, chopper,
     newline_token_ids=newline_token_ids, gen_cfg=gen_cfg,
     rescue_prompt="I can find a clearer solution if I focus on the core problem.",
-    token_budget=32768, rescue_budget=128, max_rescues=1
+    token_budget=32768, rescue_budget=4096, max_rescues=1
 )
 
 print("Generated text:", result_wsc["response"])
@@ -76,9 +84,9 @@ print("Total tokens used:", result_wsc["total_used_tokens"])
 ```
 
 ### Ready-to-Use Classifiers
-- **DeepSeek-R1-Distill-Qwen-7B (s1)** → `DeepSeek-R1-Distill-Qwen-7B_s1/probe.pkl`
-- **DeepSeek-R1-Distill-Qwen-1.5B (s1)** → `DeepSeek-R1-Distill-Qwen-1.5B_s1/probe.pkl`
-- **DeepSeek-R1-Distill-Llama-8B (s1)** → `DeepSeek-R1-Distill-Llama-8B_s1/probe.pkl`
+- **DeepSeek-R1-Distill-Qwen-7B** → `DeepSeek-R1-Distill-Qwen-7B_s1/probe.pkl`
+- **DeepSeek-R1-Distill-Qwen-1.5B** → `DeepSeek-R1-Distill-Qwen-1.5B_s1/probe.pkl`
+- **DeepSeek-R1-Distill-Llama-8B** → `DeepSeek-R1-Distill-Llama-8B_s1/probe.pkl`
 
 Fetch any probe via:
 ```python
@@ -86,27 +94,33 @@ from huggingface_hub import hf_hub_download
 
 probe_file = hf_hub_download(
     repo_id="xiewenya/WordSaladChopper_Classifier",
-    filename="DeepSeek-R1-Distill-Qwen-1.5B_s1/probe.pkl",  # swap to the file you need
+    filename="DeepSeek-R1-Distill-Qwen-1.5B_s1/probe.pkl",  # swap to the probe you need
     repo_type="model",
 )
 ```
 ---
 
 ## 2. CLI Usage
+### 2.1 Prepare the Prober
 
-### Generate with WordSaladChopper
+```bash
+mkdir -p prober/DeepSeek-R1-Distill-Qwen-7B_s1
+wget https://huggingface.co/xiewenya/WordSaladChopper_Classifier/resolve/main/DeepSeek-R1-Distill-Qwen-7B_s1/probe.pkl \
+  -O prober/DeepSeek-R1-Distill-Qwen-7B_s1/probe.pkl
+```
 
-Edit the `PROBER_PATH` in `sh/generate.sh`, then run:
+### 2.2 Generate
 
 ```bash
 bash sh/generate.sh
 ```
 
+To use your own classifier, set `PROBER_PATH` in `sh/generate.sh` before running.
 ---
 
 ## 3. Training a Custom Classifier (Probe)
 
-The classifier detects **hidden-state signals of degeneracy** (repetition drift → collapse).
+The classifier detects **hidden-state signals of degeneracy**.
 You can train your own classifier on:
 
 * your own reasoning traces, or
@@ -114,7 +128,7 @@ You can train your own classifier on:
 
 ### Available Training Data
 
-We provide s1 reasoning traces in huggingface for multiple models. you can download them and put them in your data path.
+We provide s1 reasoning traces on Hugging Face for multiple models. You can download them and put them in your data path.
 
 ```bash
 mkdir -p data/DeepSeek-R1-Distill-Qwen-7B_s1
@@ -124,12 +138,10 @@ wget https://huggingface.co/datasets/xiewenya/WordSaladChopper_Classifier_Data/r
 
 ### Edit Config
 
-Modify `configs/train.yaml` before training:
+Modify data path in `configs/train.yaml` before training:
 
 ```yaml
 model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
-min_token_len: 10
-pos_neg_ratio: "1:1"
 
 train_mix:
   s1_temp_0_6_top0p95:
@@ -138,14 +150,6 @@ train_mix:
     top_p: 0.95
     dataset_id: s1_temp_0_6_top0p95
     path: data/DeepSeek-R1-Distill-Qwen-7B_s1/results.json
-
-labeler_type: semantic
-prober_name: logistic
-layer_idx: 27
-module_path: null
-
-seed: 41
-root_dir: <your_output_directory>
 ```
 
 ### Start Training
@@ -158,8 +162,8 @@ bash sh/training.sh
 
 To train on your own samples:
 
-- Format your dataset to match the structure of our released traces.
-- Modify `configs/train.yaml`
+Step 1: Format your dataset to match the structure of our released traces.
+Step 2: Modify the data path in `configs/train.yaml`.
 ---
 
 ## 4. Repository Structure
@@ -173,7 +177,7 @@ WordSaladChopper/
 ├── src/                    # Thin wrappers for CLI usage & packaging
 ├── wscgen/                 # Core Python package
 │   ├── chopper.py          # Word Salad detection & chopping logic
-│   ├── generate.py         # wsc generator
+│   ├── generate.py         # WSC generator
 │   ├── prober.py           # Probe loading / inference helpers
 │   ├── pipeline/           # Probe training + evaluation utilities
 │   ├── training/           # Training loops for probes
@@ -187,15 +191,11 @@ WordSaladChopper/
 If you find this work helpful, please cite:
 
 ```bibtex
-@inproceedings{xie2025wordsalad,
-  title={Word Salad Chopper: Reasoning Models Waste A Ton Of Decoding Budget On Useless Repetitions, Self-Knowingly},
-  author={Xie, Wenya and Zhong, Shaochen and Le, Hoang Anh Duy and Xu, Zhaozhuo and Xie, Jianwen and Liu, Zirui},
-  booktitle={Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
-  year={2025},
-  note={To appear},
-  publisher={Association for Computational Linguistics},
+@inproceedings{xie-etal-2025-word,
+    title = "Word Salad Chopper: Reasoning Models Waste A Ton Of Decoding Budget On Useless Repetitions, Self-Knowingly",
+    author = "Xie, Wenya  and Zhong, Shaochen  and Le, Hoang Anh Duy  and Xu, Zhaozhuo  and Xie, Jianwen  and Liu, Zirui",
+    booktitle = "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing"
 }
-
 ```
 
 ---
@@ -208,5 +208,5 @@ Released under the [MIT License](LICENSE).
 ## Acknowledgment
 
 This project partially builds upon the **SkyThought** large-scale reasoning framework and draws on the evaluation methodology from **Qwen2.5-Math**.
-- SkyThought: https://github.com/NovaSky-AI/SkyThought
-- Qwen2.5-Math: https://github.com/QwenLM/Qwen2.5-Math
+- SkyThought: [https://github.com/NovaSky-AI/SkyThought](https://github.com/NovaSky-AI/SkyThought)
+- Qwen2.5-Math: [https://github.com/QwenLM/Qwen2.5-Math](https://github.com/QwenLM/Qwen2.5-Math)

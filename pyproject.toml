@@ -3,7 +3,7 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "wordsalad-chopper"
+name = "wsc"
 version = "0.1.0"
 description = "WordSaladChopper: A lightweight module that chops away word-salad repetitions in large reasoning models"
 authors = [{ name = "wenyaxie023", email = "wenyaxie023@gmail.com" }]

@@ -46,7 +46,7 @@ class PipelineConfig:
 
     # -------------- Misc ------------------------------------------
     seed: int = 41
-    root_dir: Optional[str] = None
+    root_dir: str = "./artifacts"
     debug_dump: bool = True
     override: bool = False
 
