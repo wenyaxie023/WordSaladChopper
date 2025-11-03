@@ -19,11 +19,6 @@ Here we show the on-the-fly (end-to-end) version implemented with Hugging Face.
 For large-scale paper reproduction, see [reproduced/README.md](reproduced/README.md).
 
 ### Installation
-
-Prerequisites:
-- Python 3.10+
-- PyTorch with a compatible CUDA setup (optional, recommended for GPU inference)
-
 ```bash
 git clone https://github.com/wenyaxie023/WordSaladChopper.git
 cd WordSaladChopper
@@ -63,17 +58,17 @@ chopper = Chopper(
     thresh=0.5, streak_len=2, short_streak_len=5, len_threshold=10
 )
 
+question = "Return your final response within \\boxed{}. Compute: $1-2+3-4+5- \\dots +99-100$."
 messages = [
-    {"role": "user", "content": "Return your final response within \\boxed{}. Compute: $1-2+3-4+5- \\dots +99-100$."}
+    {"role": "user", "content": question}
 ]
-prompt_txt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
 newline_token_ids = find_newline_token_ids(tokenizer)
 gen_cfg = {"temperature": 0.6, "top_p": 0.95}
 
-
 result_wsc = wsc_generate(
-    model, tokenizer, prompt_txt, chopper,
+    model, tokenizer, prompt, chopper,
     newline_token_ids=newline_token_ids, gen_cfg=gen_cfg,
     rescue_prompt="I can find a clearer solution if I focus on the core problem.",
     token_budget=32768, rescue_budget=4096, max_rescues=1
