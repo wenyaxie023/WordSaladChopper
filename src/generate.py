@@ -2,6 +2,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import argparse
 from pathlib import Path
 import json
+import time
 from tqdm import tqdm
 import hashlib
 import yaml
@@ -20,17 +21,30 @@ def vanilla_generate(model, tokenizer, prompt_txt, gen_cfg, max_new_tokens):
     inputs = tokenizer(prompt_txt, return_tensors="pt", add_special_tokens=False)
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
     generate_kwargs = dict(max_new_tokens=max_new_tokens, **gen_cfg)
+    t_start = time.perf_counter()
     with torch.no_grad():
         output = model.generate(**inputs, **generate_kwargs)
+    total_seconds = time.perf_counter() - t_start
 
     gen_ids = output[0][inputs["input_ids"].shape[-1]:]
     response = tokenizer.decode(gen_ids, skip_special_tokens=True)
+    used_tokens = int(gen_ids.shape[-1] - 1)  ## -1 for the <eos> token
     return {
         "response": response,
-        "total_used_tokens": int(gen_ids.shape[-1] -1), ## -1 for the <eos> token
+        "total_used_tokens": used_tokens,
         "rescue_time": 0.0,
         "kept_texts": [],
-        "kept_scores": [],
+        "full_scores": [],
+        "full_texts": [response],
+        "timing": {
+            "total_seconds": total_seconds,
+            "decode_seconds": total_seconds,
+            "chop_seconds": 0.0,
+            "rebuild_seconds": 0.0,
+            "prefill_seconds": 0.0,
+            "prefill_calls": 1,
+            "tokens_per_second": max(0, used_tokens) / max(total_seconds, 1e-9),
+        },
     }
 
 class TextHandler:
@@ -85,6 +99,7 @@ def run_one_pass(
         "kept_texts": result["kept_texts"],
         "full_scores": result["full_scores"],
         "full_texts": result["full_texts"],
+        "timing": result.get("timing", {}),
     }
 
 def parse_args() -> argparse.Namespace:
@@ -266,12 +281,15 @@ if __name__ == "__main__":
             "responses": [r["response"] for r in per_sample_runs],
             "avg_used_tokens": sum(r["used_tokens"] for r in per_sample_runs) / args.n_samples,
             "correctnesses": [r["correct"] for r in per_sample_runs],
+            "avg_total_seconds": sum(float(r.get("timing", {}).get("total_seconds", 0.0)) for r in per_sample_runs) / args.n_samples,
+            "avg_tokens_per_second": sum(float(r.get("timing", {}).get("tokens_per_second", 0.0)) for r in per_sample_runs) / args.n_samples,
             "details": [{
                 "kept_texts": r["kept_texts"],
                 "full_scores": r["full_scores"],
                 "full_texts": r["full_texts"],
                 "used_tokens": r["used_tokens"],
                 "rescue_time": r["rescue_time"],
+                "timing": r.get("timing", {}),
             } for r in per_sample_runs]
         }
 
@@ -288,6 +306,20 @@ if __name__ == "__main__":
         all_results.append(base)
 
         if idx % 1 == 0:
+            latest = per_sample_runs[-1]
+            timing = latest.get("timing", {})
+            logger.info(
+                "sample_idx=%s avg_tokens=%.1f avg_total_s=%.3f avg_toks/s=%.2f last_run_total_s=%.3f last_run_toks/s=%.2f decode_s=%.3f prefill_s=%.3f chop_s=%.3f",
+                idx,
+                float(base["avg_used_tokens"]),
+                float(base["avg_total_seconds"]),
+                float(base["avg_tokens_per_second"]),
+                float(timing.get("total_seconds", 0.0)),
+                float(timing.get("tokens_per_second", 0.0)),
+                float(timing.get("decode_seconds", 0.0)),
+                float(timing.get("prefill_seconds", 0.0)),
+                float(timing.get("chop_seconds", 0.0)),
+            )
             (run_dir / "temp.json").write_text(
                 json.dumps(all_results, indent=2, ensure_ascii=False))
 
@@ -297,6 +329,8 @@ if __name__ == "__main__":
     labeled = [s for s in all_results if s.get("avg_correctness") is not None]
     dataset_accuracy = (sum(s["avg_correctness"] for s in labeled) / len(labeled)) if labeled else None
     dataset_avg_tokens = sum(s["avg_used_tokens"] for s in all_results) / total_samples
+    dataset_avg_seconds = sum(float(s.get("avg_total_seconds", 0.0)) for s in all_results) / total_samples
+    dataset_avg_toks_per_sec = sum(float(s.get("avg_tokens_per_second", 0.0)) for s in all_results) / total_samples
 
 
     if dataset_accuracy is not None:
@@ -304,6 +338,8 @@ if __name__ == "__main__":
     else:
         logger.info("Accuracy: N/A (text mode)")
     logger.info(f"Avg used tokens : {dataset_avg_tokens:.1f}")
+    logger.info(f"Avg total seconds : {dataset_avg_seconds:.3f}")
+    logger.info(f"Avg tokens/s : {dataset_avg_toks_per_sec:.2f}")
 
     (Path(run_dir) / "results.json").write_text(
         json.dumps(all_results, indent=4, ensure_ascii=False))
@@ -312,10 +348,10 @@ if __name__ == "__main__":
         "config": vars(args),
         "accuracy": dataset_accuracy,
         "avg_used_tokens": dataset_avg_tokens,
+        "avg_total_seconds": dataset_avg_seconds,
+        "avg_tokens_per_second": dataset_avg_toks_per_sec,
     }
     (Path(run_dir) / "summary.json").write_text(json.dumps(summary, indent=2))
     
     with open(run_dir / f"summary.json", "w") as f:
         json.dump(summary, f, indent=4, ensure_ascii=False)
-
-

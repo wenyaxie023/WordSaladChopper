@@ -78,6 +78,16 @@ print("Generated text:", result_wsc["response"])
 print("Total tokens used:", result_wsc["total_used_tokens"])
 ```
 
+### Performance Notes
+
+`wsc_generate` uses a KV-cache continuous decoding path:
+- it does **not** re-forward the whole prompt at every `\n\n` probe point;
+- it only rebuilds cache when rollback/rescue is actually triggered.
+
+This reduces repeated prefill cost significantly on long outputs with many probe points.
+
+Current `gen_cfg` keys used by `wsc_generate`: `do_sample`, `temperature`, `top_p`, `top_k`.
+
 ---
 
 ## 2. CLI Usage
