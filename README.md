@@ -12,6 +12,7 @@
 ---
 ## News
 - [11/01/2025] v1 released — first public version now available.
+- [02/22/2026] Performance update: optimized rescue path with KV-cache slice rollback + in-place rescue prompt append.
 
 ## 🚀 1. Quick Start
 
@@ -34,6 +35,7 @@ This example uses DeepSeek-R1-Distill-Qwen-7B with a ready-to-use classifier hos
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from huggingface_hub import hf_hub_download
+import torch
 from wscgen.chopper import Chopper
 from wscgen.generate import wsc_generate
 from wscgen.prober import build_prober
@@ -41,7 +43,20 @@ from wscgen.utils import find_newline_token_ids, set_seed
 
 set_seed(41)
 model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
-model = AutoModelForCausalLM.from_pretrained(model_name)
+dtype = "bfloat16"
+use_flash_attention_2 = False
+dtype_map = {
+    "bfloat16": torch.bfloat16,
+    "float16": torch.float16,
+    "float32": torch.float32,
+}
+torch_dtype = dtype_map[dtype]
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype=torch_dtype,
+    device_map="auto",
+    use_flash_attention_2=use_flash_attention_2,
+)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 # Load the trained prober
@@ -58,14 +73,14 @@ chopper = Chopper(
     thresh=0.5, streak_len=2, short_streak_len=5, len_threshold=10
 )
 
-question = "Return your final response within \\boxed{}. Compute: $1-2+3-4+5- \\dots +99-100$."
+question = "On $\\triangle ABC$ points $A,D,E$, and $B$ lie that order on side $\\overline{AB}$ with $AD=4, DE=16$, and $EB=8$. Points $A,F,G$, and $C$ lie in that order on side $\\overline{AC}$ with $AF=13, FG=52$, and $GC=26$. Let $M$ be the reflection of $D$ through $F$, and let $N$ be the reflection of $G$ through $E$. Quadrilateral $DEGF$ has area 288. Find the area of heptagon $AFNBCEM$.\nReturn your final response within \\boxed{}"
 messages = [
     {"role": "user", "content": question}
 ]
 prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
 newline_token_ids = find_newline_token_ids(tokenizer)
-gen_cfg = {"temperature": 0.6, "top_p": 0.95}
+gen_cfg = {"do_sample": True, "temperature": 0.6, "top_p": 0.95}
 
 result_wsc = wsc_generate(
     model, tokenizer, prompt, chopper,
@@ -82,7 +97,8 @@ print("Total tokens used:", result_wsc["total_used_tokens"])
 
 `wsc_generate` uses a KV-cache continuous decoding path:
 - it does **not** re-forward the whole prompt at every `\n\n` probe point;
-- it only rebuilds cache when rollback/rescue is actually triggered.
+- on rescue, it first tries KV-cache slice rollback + rescue prompt append in cache (fast path);
+- it only rebuilds context and re-prefills when cache slicing is unsupported (fallback path).
 
 This reduces repeated prefill cost significantly on long outputs with many probe points.
 

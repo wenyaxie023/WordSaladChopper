@@ -15,20 +15,30 @@ from wscgen.generate import wsc_generate
 from wscgen.utils import set_seed, setup_logger, prepare_resume, find_newline_token_ids
 
 
-def vanilla_generate(model, tokenizer, prompt_txt, gen_cfg, max_new_tokens):
+def vanilla_generate(model, tokenizer, prompt_txt, gen_cfg, max_new_tokens, enable_timing=False):
     """Plain generation to mirror wsc_generate's return schema (minimal)."""
 
     inputs = tokenizer(prompt_txt, return_tensors="pt", add_special_tokens=False)
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
     generate_kwargs = dict(max_new_tokens=max_new_tokens, **gen_cfg)
-    t_start = time.perf_counter()
+    t_start = time.perf_counter() if enable_timing else 0.0
     with torch.no_grad():
         output = model.generate(**inputs, **generate_kwargs)
-    total_seconds = time.perf_counter() - t_start
 
     gen_ids = output[0][inputs["input_ids"].shape[-1]:]
     response = tokenizer.decode(gen_ids, skip_special_tokens=True)
     used_tokens = int(gen_ids.shape[-1] - 1)  ## -1 for the <eos> token
+    timing = {}
+    if enable_timing:
+        total_seconds = time.perf_counter() - t_start
+        timing = {
+            "total_seconds": total_seconds,
+            "decode_seconds": total_seconds,
+            "chop_seconds": 0.0,
+            "prefill_seconds": 0.0,
+            "prefill_calls": 1,
+            "tokens_per_second": max(0, used_tokens) / max(total_seconds, 1e-9),
+        }
     return {
         "response": response,
         "total_used_tokens": used_tokens,
@@ -36,15 +46,7 @@ def vanilla_generate(model, tokenizer, prompt_txt, gen_cfg, max_new_tokens):
         "kept_texts": [],
         "full_scores": [],
         "full_texts": [response],
-        "timing": {
-            "total_seconds": total_seconds,
-            "decode_seconds": total_seconds,
-            "chop_seconds": 0.0,
-            "rebuild_seconds": 0.0,
-            "prefill_seconds": 0.0,
-            "prefill_calls": 1,
-            "tokens_per_second": max(0, used_tokens) / max(total_seconds, 1e-9),
-        },
+        "timing": timing,
     }
 
 class TextHandler:
@@ -68,7 +70,7 @@ def run_one_pass(
     sample, *,
     handler, model, tokenizer, chopper,
     newline_token_ids, gen_cfg, rescue_prompt,
-    token_budget, rescue_budget, max_rescues, method
+    token_budget, rescue_budget, max_rescues, method, enable_timing
 ):
     """
     Run one pass of generation and evaluation.
@@ -84,11 +86,11 @@ def run_one_pass(
             newline_token_ids=newline_token_ids,
             gen_cfg=gen_cfg, rescue_prompt=rescue_prompt,
             token_budget=token_budget, rescue_budget=rescue_budget,
-            max_rescues=max_rescues)
+            max_rescues=max_rescues, enable_timing=enable_timing)
             
     else:
         result = vanilla_generate(
-            model, tokenizer, prompt_txt, gen_cfg, max_new_tokens=token_budget
+            model, tokenizer, prompt_txt, gen_cfg, max_new_tokens=token_budget, enable_timing=enable_timing
         )
     return {
         "prompt": prompt_txt,
@@ -137,6 +139,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--rescue-prompt", default="Let me reconsider this problem with a clear and confident mindset.", help="Rescue prompt")
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--top-p", type=float, default=0.95)
+    p.add_argument("--enable-timing", action="store_true",
+                   help="Enable detailed timing (includes CUDA synchronization overhead for accurate profiling)")
 
     # save params
     p.add_argument("--out-dir", type=str, default="./outputs", help="Output directory")
@@ -147,6 +151,27 @@ def parse_args() -> argparse.Namespace:
                    help="Path to a JSON array of dataset indices to run, in desired order (e.g., output of filter.py)")
     
     return p.parse_args()
+
+
+def _aggregate_timing(all_results: list[dict], keys: list[str]) -> dict:
+    stats = {}
+    run_count = 0
+    for sample in all_results:
+        for detail in sample.get("details", []):
+            timing = detail.get("timing", {})
+            run_count += 1
+            for k in keys:
+                v = timing.get(k)
+                if v is None:
+                    continue
+                stats[k] = stats.get(k, 0.0) + float(v)
+
+    out = {"num_runs": run_count}
+    for k in keys:
+        s = float(stats.get(k, 0.0))
+        out[f"sum_{k}"] = s
+        out[f"avg_{k}"] = s / max(run_count, 1)
+    return out
 
 if __name__ == "__main__":
     args = parse_args()
@@ -271,18 +296,27 @@ if __name__ == "__main__":
                     handler=handler, model=model, tokenizer=tokenizer, chopper=chopper,
                     newline_token_ids=newline_token_ids, gen_cfg=gen_cfg,
                     rescue_prompt=rescue_prompt, token_budget=token_budget,
-                    rescue_budget=rescue_budget, max_rescues=max_rescues, method=args.method
+                    rescue_budget=rescue_budget, max_rescues=max_rescues,
+                    method=args.method, enable_timing=args.enable_timing
                 )
             per_sample_runs.append(result)
+
+        if args.enable_timing:
+            avg_total_seconds = sum(float(r.get("timing", {}).get("total_seconds", 0.0)) for r in per_sample_runs) / args.n_samples
+            avg_tokens_per_second = sum(float(r.get("timing", {}).get("tokens_per_second", 0.0)) for r in per_sample_runs) / args.n_samples
+        else:
+            avg_total_seconds = None
+            avg_tokens_per_second = None
 
 
         base = {
             "id": sample.get("id", idx),
+            "prompt": per_sample_runs[0]["prompt"] if per_sample_runs else "",
             "responses": [r["response"] for r in per_sample_runs],
             "avg_used_tokens": sum(r["used_tokens"] for r in per_sample_runs) / args.n_samples,
             "correctnesses": [r["correct"] for r in per_sample_runs],
-            "avg_total_seconds": sum(float(r.get("timing", {}).get("total_seconds", 0.0)) for r in per_sample_runs) / args.n_samples,
-            "avg_tokens_per_second": sum(float(r.get("timing", {}).get("tokens_per_second", 0.0)) for r in per_sample_runs) / args.n_samples,
+            "avg_total_seconds": avg_total_seconds,
+            "avg_tokens_per_second": avg_tokens_per_second,
             "details": [{
                 "kept_texts": r["kept_texts"],
                 "full_scores": r["full_scores"],
@@ -307,19 +341,29 @@ if __name__ == "__main__":
 
         if idx % 1 == 0:
             latest = per_sample_runs[-1]
-            timing = latest.get("timing", {})
-            logger.info(
-                "sample_idx=%s avg_tokens=%.1f avg_total_s=%.3f avg_toks/s=%.2f last_run_total_s=%.3f last_run_toks/s=%.2f decode_s=%.3f prefill_s=%.3f chop_s=%.3f",
-                idx,
-                float(base["avg_used_tokens"]),
-                float(base["avg_total_seconds"]),
-                float(base["avg_tokens_per_second"]),
-                float(timing.get("total_seconds", 0.0)),
-                float(timing.get("tokens_per_second", 0.0)),
-                float(timing.get("decode_seconds", 0.0)),
-                float(timing.get("prefill_seconds", 0.0)),
-                float(timing.get("chop_seconds", 0.0)),
-            )
+            if args.enable_timing:
+                timing = latest.get("timing", {})
+                logger.info(
+                    "sample_idx=%s avg_tokens=%.1f avg_total_s=%.3f avg_toks/s=%.2f last_run_total_s=%.3f last_run_toks/s=%.2f decode_s=%.3f prefill_s=%.3f chop_s=%.3f t_start_to_chop=%.3f t_chop_to_end=%.3f",
+                    idx,
+                    float(base["avg_used_tokens"]),
+                    float(base["avg_total_seconds"]),
+                    float(base["avg_tokens_per_second"]),
+                    float(timing.get("total_seconds", 0.0)),
+                    float(timing.get("tokens_per_second", 0.0)),
+                    float(timing.get("decode_seconds", 0.0)),
+                    float(timing.get("prefill_seconds", 0.0)),
+                    float(timing.get("chop_seconds", 0.0)),
+                    float(timing.get("start_to_first_chop_seconds") or 0.0),
+                    float(timing.get("first_chop_to_end_seconds") or 0.0),
+                )
+            else:
+                logger.info(
+                    "sample_idx=%s avg_tokens=%.1f rescue_time=%s",
+                    idx,
+                    float(base["avg_used_tokens"]),
+                    latest.get("rescue_time"),
+                )
             (run_dir / "temp.json").write_text(
                 json.dumps(all_results, indent=2, ensure_ascii=False))
 
@@ -329,8 +373,12 @@ if __name__ == "__main__":
     labeled = [s for s in all_results if s.get("avg_correctness") is not None]
     dataset_accuracy = (sum(s["avg_correctness"] for s in labeled) / len(labeled)) if labeled else None
     dataset_avg_tokens = sum(s["avg_used_tokens"] for s in all_results) / total_samples
-    dataset_avg_seconds = sum(float(s.get("avg_total_seconds", 0.0)) for s in all_results) / total_samples
-    dataset_avg_toks_per_sec = sum(float(s.get("avg_tokens_per_second", 0.0)) for s in all_results) / total_samples
+    if args.enable_timing:
+        dataset_avg_seconds = sum(float(s.get("avg_total_seconds", 0.0)) for s in all_results) / total_samples
+        dataset_avg_toks_per_sec = sum(float(s.get("avg_tokens_per_second", 0.0)) for s in all_results) / total_samples
+    else:
+        dataset_avg_seconds = None
+        dataset_avg_toks_per_sec = None
 
 
     if dataset_accuracy is not None:
@@ -338,18 +386,35 @@ if __name__ == "__main__":
     else:
         logger.info("Accuracy: N/A (text mode)")
     logger.info(f"Avg used tokens : {dataset_avg_tokens:.1f}")
-    logger.info(f"Avg total seconds : {dataset_avg_seconds:.3f}")
-    logger.info(f"Avg tokens/s : {dataset_avg_toks_per_sec:.2f}")
+    if args.enable_timing:
+        logger.info(f"Avg total seconds : {dataset_avg_seconds:.3f}")
+        logger.info(f"Avg tokens/s : {dataset_avg_toks_per_sec:.2f}")
+    else:
+        logger.info("Timing disabled: skip avg seconds and tokens/s")
 
     (Path(run_dir) / "results.json").write_text(
         json.dumps(all_results, indent=4, ensure_ascii=False))
 
     summary = {
         "config": vars(args),
+        "timing_enabled": bool(args.enable_timing),
         "accuracy": dataset_accuracy,
         "avg_used_tokens": dataset_avg_tokens,
         "avg_total_seconds": dataset_avg_seconds,
         "avg_tokens_per_second": dataset_avg_toks_per_sec,
+        "timing_stats": _aggregate_timing(
+            all_results,
+            [
+                "total_seconds",
+                "tokens_per_second",
+                "decode_seconds",
+                "prefill_seconds",
+                "chop_seconds",
+                "prefill_calls",
+                "start_to_first_chop_seconds",
+                "first_chop_to_end_seconds",
+            ],
+        ) if args.enable_timing else None,
     }
     (Path(run_dir) / "summary.json").write_text(json.dumps(summary, indent=2))
     
