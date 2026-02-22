@@ -36,6 +36,7 @@ This example uses DeepSeek-R1-Distill-Qwen-7B with a ready-to-use classifier hos
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from huggingface_hub import hf_hub_download
 import torch
+import time
 from wscgen.chopper import Chopper
 from wscgen.generate import wsc_generate
 from wscgen.prober import build_prober
@@ -82,15 +83,18 @@ prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_
 newline_token_ids = find_newline_token_ids(tokenizer)
 gen_cfg = {"do_sample": True, "temperature": 0.6, "top_p": 0.95}
 
+t0 = time.perf_counter()
 result_wsc = wsc_generate(
     model, tokenizer, prompt, chopper,
     newline_token_ids=newline_token_ids, gen_cfg=gen_cfg,
-    rescue_prompt="I can find a clearer solution if I focus on the core problem.",
+    rescue_prompt="Let me reconsider this problem with a clear and confident mindset.",
     token_budget=32768, rescue_budget=4096, max_rescues=1
 )
+total_seconds = time.perf_counter() - t0
 
 print("Generated text:", result_wsc["response"])
 print("Total tokens used:", result_wsc["total_used_tokens"])
+print("Total seconds:", round(total_seconds, 3))
 ```
 
 ### Performance Notes
