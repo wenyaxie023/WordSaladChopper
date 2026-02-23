@@ -33,7 +33,7 @@ pip install -e .
 This example uses DeepSeek-R1-Distill-Qwen-7B with a ready-to-use classifier hosted on Hugging Face.
 
 ```python
-from transformers import AutoModelForCausalLM, AutoTokenizer
+ffrom transformers import AutoModelForCausalLM, AutoTokenizer
 from huggingface_hub import hf_hub_download
 import torch
 import time
@@ -74,7 +74,7 @@ chopper = Chopper(
     thresh=0.5, streak_len=2, short_streak_len=5, len_threshold=10
 )
 
-question = "On $\\triangle ABC$ points $A,D,E$, and $B$ lie that order on side $\\overline{AB}$ with $AD=4, DE=16$, and $EB=8$. Points $A,F,G$, and $C$ lie in that order on side $\\overline{AC}$ with $AF=13, FG=52$, and $GC=26$. Let $M$ be the reflection of $D$ through $F$, and let $N$ be the reflection of $G$ through $E$. Quadrilateral $DEGF$ has area 288. Find the area of heptagon $AFNBCEM$.\nReturn your final response within \\boxed{}"
+question = "Return your final response within \\boxed{}. Compute: $1-2+3-4+5- \\dots +99-100$."
 messages = [
     {"role": "user", "content": question}
 ]
@@ -87,7 +87,7 @@ t0 = time.perf_counter()
 result_wsc = wsc_generate(
     model, tokenizer, prompt, chopper,
     newline_token_ids=newline_token_ids, gen_cfg=gen_cfg,
-    rescue_prompt="Let me reconsider this problem with a clear and confident mindset.",
+    rescue_prompt="I can find a clearer solution if I focus on the core problem.",
     token_budget=32768, rescue_budget=4096, max_rescues=1
 )
 total_seconds = time.perf_counter() - t0
